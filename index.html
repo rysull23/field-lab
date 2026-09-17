@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover'>
+<title>Field Lab</title>
+<meta name='theme-color' content='#0c0d0b'>
+<meta name='description' content='Interactive vector-field laboratory with editable equations, animated particles, and a hover readout.'>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link href='https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap' rel='stylesheet'>
+<link rel='icon' href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%230c0d0b' width='32' height='32'/><path d='M16 6l2 8-8 2 8 2-2 8-2-8 8-2-8-2z' fill='none' stroke='%237ec8c4' stroke-width='1.6'/></svg>">
+<style>
+:root {
+  --bg: #0c0d0b;
+  --surface: #141512;
+  --surface-2: #1c1d18;
+  --fg: #e8e6de;
+  --muted: #8b8a82;
+  --faint: #5c5b54;
+  --accent: #7ec8c4;
+  --coral: #d4786a;
+  --border: #2a2b26;
+  --grid: #22231e;
+  --danger: #c45c4a;
+  --radius: 12px;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --space: 8px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--fg); font-family: var(--font-sans); }
+body { min-height: 100dvh; overflow: hidden; }
+button:not(:disabled), [role='button']:not(:disabled) { cursor: pointer; }
+.lab {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100dvh;
+  height: 100svh;
+}
+.rail {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 20px 18px 16px;
+}
+.rail-scroll {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-right: 4px;
+}
+.kicker {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+h1 {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-top: 4px;
+}
+.lede {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+.section-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.eq {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.eq-head {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: var(--fg);
+}
+.eq-row {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.eq-row:last-of-type { margin-bottom: 0; }
+.eq-row label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+.eq input {
+  width: 100%;
+  height: 40px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 0 10px;
+  outline: none;
+}
+.eq input:focus { border-color: var(--accent); }
+.eq input.bad { border-color: var(--danger); }
+.hint, .err {
+  font-size: 11px;
+  line-height: 1.4;
+  margin-top: 8px;
+  color: var(--faint);
+}
+.err { color: var(--danger); min-height: 16px; }
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  transition: color 160ms var(--ease), border-color 160ms var(--ease), background 160ms var(--ease);
+}
+.chip:hover { color: var(--fg); border-color: var(--faint); }
+.chip.on {
+  color: var(--fg);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.ctrl { display: flex; flex-direction: column; gap: 10px; }
+.slider-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.slider-row span:first-child { font-size: 13px; color: var(--muted); }
+.val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+}
+input[type='range'] {
+  width: 100%;
+  appearance: none;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--fg);
+  border: 0;
+}
+.toggles { display: flex; flex-direction: column; gap: 6px; }
+.toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 36px; font-size: 13px; color: var(--muted);
+}
+.toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+.play-row { display: grid; grid-template-columns: 1fr 44px; gap: 8px; margin-top: 4px; }
+.btn {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 120ms var(--ease), opacity 120ms var(--ease);
+}
+.btn:hover { opacity: 0.92; }
+.btn:active { transform: scale(0.98); }
+.btn.ghost {
+  background: transparent;
+  color: var(--fg);
+}
+.btn svg { width: 16px; height: 16px; }
+.stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+.hud {
+  position: absolute;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  min-width: 168px;
+  opacity: 0;
+  transform: translate(12px, 12px);
+  transition: opacity 120ms var(--ease);
+}
+.hud.show { opacity: 1; }
+.hud b { color: var(--muted); font-weight: 400; }
+.hud .mag { color: var(--accent); }
+.tools {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  gap: 6px;
+}
+.icon-btn {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--fg);
+  display: grid; place-items: center;
+}
+.icon-btn:hover { border-color: var(--faint); }
+.icon-btn svg { width: 16px; height: 16px; }
+.legend {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.legend-bar {
+  width: 88px; height: 6px; border-radius: 99px;
+  background: linear-gradient(90deg, #3d8a86, #e8e0c8, #d4786a);
+}
+.click-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--faint);
+  pointer-events: none;
+  letter-spacing: 0.02em;
+}
+@media (max-width: 840px) {
+  body { overflow: auto; }
+  .lab {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(46vh, 1fr) auto;
+    height: 100dvh;
+  }
+  .rail {
+    border-right: 0;
+    border-top: 1px solid var(--border);
+    max-height: 48vh;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  h1 { font-size: 28px; }
+  .tools { top: 8px; right: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class='lab'>
+  <aside class='rail'>
+    <header>
+      <div class='kicker'>Vector fields</div>
+      <h1>Field Lab</h1>
+      <p class='lede'>Type a field. Watch it move. Hover any point for the vector.</p>
+    </header>
+    <div class='rail-scroll'>
+      <div>
+        <div class='section-label'>Equation</div>
+        <div class='eq'>
+          <div class='eq-head'>F(x, y) = ( Px , Py )</div>
+          <div class='eq-row'><label for='px'>Px</label><input id='px' spellcheck='false' autocomplete='off' autocapitalize='off'></div>
+          <div class='eq-row'><label for='py'>Py</label><input id='py' spellcheck='false' autocomplete='off' autocapitalize='off'></div>
+          <div class='err' id='err'></div>
+          <div class='hint'>Use x, y, pi, e. Functions: sin cos tan exp log sqrt abs atan2 hypot. Power is ^.</div>
+        </div>
+      </div>
+      <div>
+        <div class='section-label'>Presets</div>
+        <div class='chips' id='presets'></div>
+      </div>
+      <div class='ctrl'>
+        <div class='section-label'>Field</div>
+        <div>
+          <div class='slider-row'><span>Arrow density</span><span class='val' id='densityVal'>16</span></div>
+          <input type='range' id='density' min='6' max='28' value='16'>
+        </div>
+        <div>
+          <div class='slider-row'><span>Particles</span><span class='val' id='countVal'>240</span></div>
+          <input type='range' id='count' min='40' max='600' step='20' value='240'>
+        </div>
+        <div>
+          <div class='slider-row'><span>Flow speed</span><span class='val' id='speedVal'>1.0</span></div>
+          <input type='range' id='speed' min='20' max='280' value='100'>
+        </div>
+        <div class='toggles'>
+          <label class='toggle'>Arrows <input type='checkbox' id='showArrows' checked></label>
+          <label class='toggle'>Particles <input type='checkbox' id='showParts' checked></label>
+          <label class='toggle'>Grid <input type='checkbox' id='showGrid' checked></label>
+          <label class='toggle'>Normalize arrows <input type='checkbox' id='normalize'></label>
+        </div>
+      </div>
+      <div>
+        <div class='play-row'>
+          <button class='btn' id='playBtn' type='button'>
+            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='6' y='5' width='4' height='14'/><rect x='14' y='5' width='4' height='14'/></svg>
+            Pause
+          </button>
+          <button class='btn ghost' id='resetBtn' type='button' title='Reset particles'>
+            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M3 12a9 9 0 1 0 3-6.7'/><path d='M3 4v5h5'/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </aside>
+  <main class='stage'>
+    <canvas id='c'></canvas>
+    <div class='hud' id='hud'></div>
+    <div class='tools'>
+      <button class='icon-btn' id='zoomOut' type='button' title='Zoom out'>
+        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='11' cy='11' r='7'/><path d='M21 21l-4.3-4.3M8 11h6'/></svg>
+      </button>
+      <button class='icon-btn' id='zoomIn' type='button' title='Zoom in'>
+        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='11' cy='11' r='7'/><path d='M21 21l-4.3-4.3M11 8v6M8 11h6'/></svg>
+      </button>
+      <button class='icon-btn' id='viewReset' type='button' title='Reset view'>
+        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='9'/><path d='M12 8v8M8 12h8'/></svg>
+      </button>
+    </div>
+    <div class='legend'><span>weak</span><div class='legend-bar'></div><span>strong</span></div>
+    <div class='click-hint'>Click to seed a tracer · scroll to zoom · drag to pan</div>
+  </main>
+</div>
+<script>
+(function () {
+  const FUN = {
+    sin: Math.sin, cos: Math.cos, tan: Math.tan,
+    asin: Math.asin, acos: Math.acos, atan: Math.atan, atan2: Math.atan2,
+    sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
+    exp: Math.exp, log: Math.log, ln: Math.log, log10: Math.log10,
+    sqrt: Math.sqrt, abs: Math.abs, min: Math.min, max: Math.max,
+    hypot: Math.hypot, floor: Math.floor, ceil: Math.ceil,
+    round: Math.round, sign: Math.sign, pow: Math.pow
+  };
+  const CONST = { pi: Math.PI, e: Math.E, tau: Math.PI * 2 };
+  const ARITY = { atan2: 2, min: 2, max: 2, hypot: 2, pow: 2 };
+
+  function tokenize(src) {
+    const t = [];
+    let i = 0;
+    const s = String(src);
+    while (i < s.length) {
+      const c = s[i];
+      if (c <= ' ') { i++; continue; }
+      if (c >= '0' && c <= '9' || (c === '.' && s[i+1] >= '0' && s[i+1] <= '9')) {
+        let j = i;
+        while (j < s.length && ((s[j] >= '0' && s[j] <= '9') || s[j] === '.')) j++;
+        if (s[j] === 'e' || s[j] === 'E') {
+          let k = j + 1;
+          if (s[k] === '+' || s[k] === '-') k++;
+          while (k < s.length && s[k] >= '0' && s[k] <= '9') k++;
+          j = k;
+        }
+        t.push({ k: 'n', v: parseFloat(s.slice(i, j)) });
+        i = j; continue;
+      }
+      if (/[A-Za-z_]/.test(c)) {
+        let j = i + 1;
+        while (j < s.length && /[A-Za-z0-9_]/.test(s[j])) j++;
+        t.push({ k: 'id', v: s.slice(i, j).toLowerCase() });
+        i = j; continue;
+      }
+      if (c === '*' && s[i+1] === '*') { t.push({ k: 'op', v: '^' }); i += 2; continue; }
+      if ('+-*/^(),'.indexOf(c) >= 0) { t.push({ k: 'op', v: c }); i++; continue; }
+      throw new Error('Unexpected \'' + c + '\'');
+    }
+    return t;
+  }
+
+  function parseExpr(src) {
+    const t = tokenize(src);
+    let p = 0;
+    const peek = () => t[p];
+    const eat = () => t[p++];
+    function expect(v) {
+      const x = peek();
+      if (!x || x.v !== v) throw new Error('Expected ' + v);
+      return eat();
+    }
+    function expr() {
+      let n = term();
+      while (peek() && (peek().v === '+' || peek().v === '-')) {
+        const op = eat().v;
+        n = { t: 'b', op, a: n, b: term() };
+      }
+      return n;
+    }
+    function term() {
+      let n = power();
+      while (peek() && (peek().v === '*' || peek().v === '/')) {
+        const op = eat().v;
+        n = { t: 'b', op, a: n, b: power() };
+      }
+      return n;
+    }
+    function power() {
+      let n = unary();
+      if (peek() && peek().v === '^') {
+        eat();
+        n = { t: 'b', op: '^', a: n, b: power() };
+      }
+      return n;
+    }
+    function unary() {
+      if (peek() && peek().v === '+') { eat(); return unary(); }
+      if (peek() && peek().v === '-') { eat(); return { t: 'u', op: '-', a: unary() }; }
+      const x = peek();
+      if (x && x.k === 'id' && FUN[x.v] && !(t[p+1] && t[p+1].v === '(')) {
+        eat();
+        return { t: 'c', name: x.v, args: [unary()] };
+      }
+      return juxta();
+    }
+    function juxta() {
+      let n = atom();
+      while (peek() && (peek().k === 'n' || peek().k === 'id' || peek().v === '(')) {
+        n = { t: 'b', op: '*', a: n, b: atom() };
+      }
+      return n;
+    }
+    function atom() {
+      const x = peek();
+      if (!x) throw new Error('Unexpected end');
+      if (x.k === 'n') { eat(); return { t: 'n', v: x.v }; }
+      if (x.v === '(') {
+        eat();
+        const n = expr();
+        expect(')');
+        return n;
+      }
+      if (x.k === 'id') {
+        eat();
+        if (peek() && peek().v === '(') {
+          eat();
+          const args = [];
+          if (!(peek() && peek().v === ')')) {
+            args.push(expr());
+            while (peek() && peek().v === ',') { eat(); args.push(expr()); }
+          }
+          expect(')');
+          if (FUN[x.v]) return { t: 'c', name: x.v, args };
+          if (args.length !== 1) throw new Error('Unknown function ' + x.v);
+          return { t: 'b', op: '*', a: identNode(x.v), b: args[0] };
+        }
+        return identNode(x.v);
+      }
+      throw new Error('Unexpected token');
+    }
+    function identNode(name) {
+      if (name === 'x' || name === 'y') return { t: 'v', name };
+      if (CONST[name] != null) return { t: 'k', v: CONST[name] };
+      if (FUN[name]) throw new Error(name + ' needs an argument');
+      throw new Error('Unknown name \'' + name + '\'');
+    }
+    if (!t.length) throw new Error('Empty expression');
+    const ast = expr();
+    if (p < t.length) throw new Error('Unexpected extra input');
+    return ast;
+  }
+
+  function compile(ast) {
+    return function ev(x, y) {
+      switch (ast.t) {
+        case 'n': case 'k': return ast.v;
+        case 'v': return ast.name === 'x' ? x : y;
+        case 'u': return -ev.call({ t: 0 }, wait);
+      }
+    };
+  }
+
+  function evalAst(ast, x, y) {
+    switch (ast.t) {
+      case 'n': case 'k': return ast.v;
+      case 'v': return ast.name === 'x' ? x : y;
+      case 'u': return -evalAst(ast.a, x, y);
+      case 'b': {
+        const a = evalAst(ast.a, x, y), b = evalAst(ast.b, x, y);
+        if (ast.op === '+') return a + b;
+        if (ast.op === '-') return a - b;
+        if (ast.op === '*') return a * b;
+        if (ast.op === '/') return b === 0 ? NaN : a / b;
+        if (ast.op === '^') return Math.pow(a, b);
+        return NaN;
+      }
+      case 'c': {
+        const fn = FUN[ast.name];
+        const args = ast.args.map(function (n) { return evalAst(n, x, y); });
+        const need = ARITY[ast.name] || 1;
+        if (args.length < need) return NaN;
+        return fn.apply(null, args);
+      }
+      default: return NaN;
+    }
+  }
+
+  function compileFn(src) {
+    const ast = parseExpr(src);
+    return function (x, y) {
+      const v = evalAst(ast, x, y);
+      return Number.isFinite(v) ? v : 0;
+    };
+  }
+
+  const PRESETS = [
+    { id: 'vortex', name: 'Vortex', px: '-y', py: 'x' },
+    { id: 'sink', name: 'Sink', px: '-x', py: '-y' },
+    { id: 'source', name: 'Source', px: 'x', py: 'y' },
+    { id: 'saddle', name: 'Saddle', px: 'x', py: '-y' },
+    { id: 'spiral', name: 'Spiral', px: '-x + y', py: '-x - y' },
+    { id: 'shear', name: 'Shear', px: 'y', py: '0' },
+    { id: 'pendulum', name: 'Pendulum', px: 'y', py: '-sin(x)' },
+    { id: 'vdp', name: 'van der Pol', px: 'y', py: '0.4*(1-x^2)*y - x' },
+    { id: 'dipole', name: 'Dipole', px: '(x^2 - y^2) / ((x^2 + y^2) + 0.15)^2', py: '2*x*y / ((x^2 + y^2) + 0.15)^2' },
+    { id: 'gyre', name: 'Gyre', px: '-sin(pi*x)*cos(pi*y)', py: 'cos(pi*x)*sin(pi*y)' }
+  ];
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const hud = document.getElementById('hud');
+  const errEl = document.getElementById('err');
+  const pxIn = document.getElementById('px');
+  const pyIn = document.getElementById('py');
+
+  const state = {
+    pxSrc: '-y',
+    pySrc: 'x',
+    preset: 'vortex',
+    density: 16,
+    count: 240,
+    speed: 1,
+    showArrows: true,
+    showParts: true,
+    showGrid: true,
+    normalize: false,
+    playing: true,
+    F: function (x, y) { return { x: -y, y: x }; },
+    view: { cx: 0, cy: 0, scale: 70 },
+    particles: [],
+    hover: null,
+    dirtyArrows: true,
+    arrowLayer: document.createElement('canvas'),
+    reduced: matchMedia('(prefers-reduced-motion: reduce)').matches
+  };
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('field-lab-v1') || 'null');
+    if (saved && saved.pxSrc) {
+      Object.assign(state, {
+        pxSrc: saved.pxSrc, pySrc: saved.pySrc, preset: saved.preset || '',
+        density: saved.density || 16, count: saved.count || 240, speed: saved.speed || 1,
+        showArrows: saved.showArrows !== false, showParts: saved.showParts !== false,
+        showGrid: saved.showGrid !== false, normalize: !!saved.normalize, playing: saved.playing !== false
+      });
+    }
+  } catch (e) {}
+
+  function persist() {
+    try {
+      localStorage.setItem('field-lab-v1', JSON.stringify({
+        pxSrc: state.pxSrc, pySrc: state.pySrc, preset: state.preset,
+        density: state.density, count: state.count, speed: state.speed,
+        showArrows: state.showArrows, showParts: state.showParts,
+        showGrid: state.showGrid, normalize: state.normalize, playing: state.playing
+      }));
+    } catch (e) {}
+  }
+
+  function applyField(px, py, presetId) {
+    try {
+      const fx = compileFn(px);
+      const fy = compileFn(py);
+      fx(0.1, -0.2); fy(0.1, -0.2);
+      state.F = function (x, y) { return { x: fx(x, y), y: fy(x, y) }; };
+      state.pxSrc = px; state.pySrc = py;
+      state.preset = presetId || '';
+      state.dirtyArrows = true;
+      errEl.textContent = '';
+      pxIn.classList.remove('bad');
+      pyIn.classList.remove('bad');
+      persist();
+      return true;
+    } catch (e) {
+      errEl.textContent = e.message || 'Could not parse';
+      return false;
+    }
+  }
+
+  function worldToScreen(x, y, w, h) {
+    const v = state.view;
+    return { x: w / 2 + (x - v.cx) * v.scale, y: h / 2 - (y - v.cy) * v.scale };
+  }
+  function screenToWorld(sx, sy, w, h) {
+    const v = state.view;
+    return { x: v.cx + (sx - w / 2) / v.scale, y: v.cy - (sy - h / 2) / v.scale };
+  }
+
+  function magColor(t) {
+    t = Math.max(0, Math.min(1, t));
+    const a = t < 0.5 ? [61, 138, 134] : [232, 224, 200];
+    const b = t < 0.5 ? [232, 224, 200] : [212, 120, 106];
+    const u = t < 0.5 ? t * 2 : (t - 0.5) * 2;
+    const r = a[0] + (b[0] - a[0]) * u;
+    const g = a[1] + (b[1] - a[1]) * u;
+    const bl = a[2] + (b[2] - a[2]) * u;
+    return 'rgb(' + (r|0) + ',' + (g|0) + ',' + (bl|0) + ')';
+  }
+
+  function spawnParticle(x, y, tracer) {
+    const trail = [];
+    for (let i = 0; i < 14; i++) trail.push({ x: x, y: y });
+    return { x: x, y: y, trail: trail, tracer: !!tracer, age: 0, stall: 0 };
+  }
+
+  function randomInView(w, h) {
+    const a = screenToWorld(0, 0, w, h);
+    const b = screenToWorld(w, h, w, h);
+    const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
+    const y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+    return { x: x0 + Math.random() * (x1 - x0), y: y0 + Math.random() * (y1 - y0) };
+  }
+
+  function seedParticles(n, w, h) {
+    const keep = state.particles.filter(function (p) { return p.tracer; }).slice(-24);
+    const next = keep.slice();
+    while (next.length < n) {
+      const q = randomInView(w, h);
+      next.push(spawnParticle(q.x, q.y, false));
+    }
+    state.particles = next.slice(0, Math.max(n, keep.length));
+  }
+
+  function rk4(p, dt) {
+    const F = state.F;
+    const k1 = F(p.x, p.y);
+    const k2 = F(p.x + k1.x * dt / 2, p.y + k1.y * dt / 2);
+    const k3 = F(p.x + k2.x * dt / 2, p.y + k2.y * dt / 2);
+    const k4 = F(p.x + k3.x * dt, p.y + k3.y * dt);
+    let dx = (k1.x + 2 * k2.x + 2 * k3.x + k4.x) * dt / 6;
+    let dy = (k1.y + 2 * k2.y + 2 * k3.y + k4.y) * dt / 6;
+    const m = Math.hypot(dx, dy);
+    const cap = 0.45;
+    if (m > cap) { dx *= cap / m; dy *= cap / m; }
+    return { x: p.x + dx, y: p.y + dy, step: Math.hypot(dx, dy) };
+  }
+
+  function stepParticles(dt, w, h) {
+    if (!state.playing || state.reduced) return;
+    const a = screenToWorld(-40, -40, w, h);
+    const b = screenToWorld(w + 40, h + 40, w, h);
+    const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
+    const y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+    for (let i = 0; i < state.particles.length; i++) {
+      const p = state.particles[i];
+      const n = rk4(p, dt * state.speed);
+      p.x = n.x; p.y = n.y; p.age++;
+      p.trail.push({ x: p.x, y: p.y });
+      if (p.trail.length > (p.tracer ? 28 : 14)) p.trail.shift();
+      if (n.step < 1e-4) p.stall++; else p.stall = 0;
+      const out = p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1 || p.stall > 40;
+      if (out && !p.tracer) {
+        const q = randomInView(w, h);
+        state.particles[i] = spawnParticle(q.x, q.y, false);
+      } else if (out && p.tracer) {
+        p.tracer = false;
+        const q = randomInView(w, h);
+        state.particles[i] = spawnParticle(q.x, q.y, false);
+      }
+    }
+  }
+
+  function drawGrid(g, w, h) {
+    if (!state.showGrid) return;
+    const a = screenToWorld(0, 0, w, h);
+    const b = screenToWorld(w, h, w, h);
+    const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
+    const y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+    const span = Math.max(x1 - x0, y1 - y0);
+    const step = niceStep(span / 8);
+    g.save();
+    g.lineWidth = 1;
+    for (let x = Math.floor(x0 / step) * step; x <= x1; x += step) {
+      const s = worldToScreen(x, 0, w, h);
+      g.strokeStyle = Math.abs(x) < step * 0.001 ? '#3a3b34' : '#1c1d18';
+      g.beginPath(); g.moveTo(s.x, 0); g.lineTo(s.x, h); g.stroke();
+    }
+    for (let y = Math.floor(y0 / step) * step; y <= y1; y += step) {
+      const s = worldToScreen(0, y, w, h);
+      g.strokeStyle = Math.abs(y) < step * 0.001 ? '#3a3b34' : '#1c1d18';
+      g.beginPath(); g.moveTo(0, s.y); g.lineTo(w, s.y); g.stroke();
+    }
+    g.restore();
+  }
+
+  function niceStep(raw) {
+    const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / pow;
+    if (n < 1.5) return pow;
+    if (n < 3.5) return 2 * pow;
+    if (n < 7.5) return 5 * pow;
+    return 10 * pow;
+  }
+
+  function drawArrow(g, x, y, dx, dy, len, color) {
+    const ang = Math.atan2(dy, dx);
+    const x2 = x + Math.cos(ang) * len;
+    const y2 = y + Math.sin(ang) * len;
+    g.strokeStyle = color;
+    g.fillStyle = color;
+    g.lineWidth = 1.15;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x2, y2);
+    g.stroke();
+    const ah = Math.min(7, len * 0.42);
+    g.beginPath();
+    g.moveTo(x2, y2);
+    g.lineTo(x2 - Math.cos(ang - 0.45) * ah, y2 - Math.sin(ang - 0.45) * ah);
+    g.lineTo(x2 - Math.cos(ang + 0.45) * ah, y2 - Math.sin(ang + 0.45) * ah);
+    g.closePath();
+    g.fill();
+  }
+
+  function rebuildArrows(w, h, dpr) {
+    const layer = state.arrowLayer;
+    layer.width = Math.max(1, w * dpr);
+    layer.height = Math.max(1, h * dpr);
+    const g = layer.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    drawGrid(g, w, h);
+    if (!state.showArrows) { state.dirtyArrows = false; return; }
+    const n = state.density;
+    const samples = [];
+    let maxM = 1e-6;
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        const sx = ((i + 0.5) / n) * w;
+        const sy = ((j + 0.5) / n) * h;
+        const p = screenToWorld(sx, sy, w, h);
+        const v = state.F(p.x, p.y);
+        const m = Math.hypot(v.x, v.y);
+        if (m > maxM) maxM = m;
+        samples.push({ sx: sx, sy: sy, v: v, m: m });
+      }
+    }
+    const cell = Math.min(w, h) / n;
+    const maxLen = cell * 0.42;
+    for (let i = 0; i < samples.length; i++) {
+      const s = samples[i];
+      if (s.m < 1e-8) continue;
+      const t = Math.min(1, s.m / (maxM * 0.85));
+      const len = state.normalize ? maxLen : maxLen * (0.22 + 0.78 * t);
+      drawArrow(g, s.sx, s.sy, s.v.x, -s.v.y, len, magColor(t));
+    }
+    state.dirtyArrows = false;
+  }
+
+  function drawParticles(g, w, h) {
+    if (!state.showParts) return;
+    for (let i = 0; i < state.particles.length; i++) {
+      const p = state.particles[i];
+      const col = p.tracer ? '#d4786a' : '#e8e0c8';
+      g.beginPath();
+      for (let k = 0; k < p.trail.length; k++) {
+        const s = worldToScreen(p.trail[k].x, p.trail[k].y, w, h);
+        if (k === 0) g.moveTo(s.x, s.y); else g.lineTo(s.x, s.y);
+      }
+      g.strokeStyle = p.tracer ? 'rgba(212,120,106,0.55)' : 'rgba(232,224,200,0.28)';
+      g.lineWidth = p.tracer ? 1.8 : 1.05;
+      g.lineJoin = 'round';
+      g.stroke();
+      const s = worldToScreen(p.x, p.y, w, h);
+      g.fillStyle = col;
+      g.beginPath();
+      g.arc(s.x, s.y, p.tracer ? 2.4 : 1.35, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+
+  function drawHover(g, w, h) {
+    const hov = state.hover;
+    if (!hov) return;
+    const v = state.F(hov.x, hov.y);
+    const s = worldToScreen(hov.x, hov.y, w, h);
+    const m = Math.hypot(v.x, v.y);
+    g.save();
+    g.strokeStyle = 'rgba(126,200,196,0.9)';
+    g.fillStyle = 'rgba(126,200,196,0.18)';
+    g.lineWidth = 1;
+    g.beginPath(); g.arc(s.x, s.y, 7, 0, Math.PI * 2); g.fill(); g.stroke();
+    const len = 28 + Math.min(40, m * state.view.scale * 0.15);
+    drawArrow(g, s.x, s.y, v.x, -v.y, len, '#7ec8c4');
+    g.restore();
+  }
+
+  function fmt(n) {
+    if (!Number.isFinite(n)) return '  —  ';
+    const a = Math.abs(n);
+    if (a >= 100) return n.toFixed(1);
+    if (a >= 10) return n.toFixed(2);
+    return n.toFixed(3);
+  }
+
+  function updateHud() {
+    const hov = state.hover;
+    if (!hov) { hud.classList.remove('show'); return; }
+    const v = state.F(hov.x, hov.y);
+    const m = Math.hypot(v.x, v.y);
+    hud.innerHTML = '<div><b>x</b>  ' + fmt(hov.x) + ' <b>y</b>  ' + fmt(hov.y) + '</div>'
+      + '<div><b>F</b>  (' + fmt(v.x) + ', ' + fmt(v.y) + ')</div>'
+      + '<div class=\'mag\'><b>|F|</b>  ' + fmt(m) + '</div>';
+    hud.classList.add('show');
+  }
+
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+    state.dirtyArrows = true;
+    if (state.particles.length < state.count) seedParticles(state.count, rect.width, rect.height);
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    if (state.particles.length !== state.count && state.particles.filter(function(p){return p.tracer;}).length < state.count) {
+      seedParticles(state.count, w, h);
+    }
+    stepParticles(dt, w, h);
+    if (state.dirtyArrows) rebuildArrows(w, h, dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#0c0d0b';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(state.arrowLayer, 0, 0, w, h);
+    drawParticles(ctx, w, h);
+    drawHover(ctx, w, h);
+    requestAnimationFrame(frame);
+  }
+
+  const box = document.getElementById('presets');
+  PRESETS.forEach(function (pr) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (state.preset === pr.id ? ' on' : '');
+    b.textContent = pr.name;
+    b.dataset.id = pr.id;
+    b.addEventListener('click', function () {
+      pxIn.value = pr.px; pyIn.value = pr.py;
+      applyField(pr.px, pr.py, pr.id);
+      document.querySelectorAll('.chip').forEach(function (c) { c.classList.toggle('on', c.dataset.id === pr.id); });
+      const rect = canvas.parentElement.getBoundingClientRect();
+      seedParticles(state.count, rect.width, rect.height);
+    });
+    box.appendChild(b);
+  });
+
+  pxIn.value = state.pxSrc;
+  pyIn.value = state.pySrc;
+  applyField(state.pxSrc, state.pySrc, state.preset);
+
+  let timer = 0;
+  function onEq() {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      const okx = (function(){ try { compileFn(pxIn.value); pxIn.classList.remove('bad'); return true; } catch(e){ pxIn.classList.add('bad'); errEl.textContent = 'Px: ' + e.message; return false; } })();
+      const oky = (function(){ try { compileFn(pyIn.value); pyIn.classList.remove('bad'); return true; } catch(e){ pyIn.classList.add('bad'); errEl.textContent = 'Py: ' + e.message; return false; } })();
+      if (okx && oky) {
+        applyField(pxIn.value, pyIn.value, '');
+        document.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('on'); });
+      }
+    }, 120);
+  }
+  pxIn.addEventListener('input', onEq);
+  pyIn.addEventListener('input', onEq);
+
+  function bindRange(id, valId, setter, fmtFn) {
+    const el = document.getElementById(id);
+    const lab = document.getElementById(valId);
+    el.addEventListener('input', function () {
+      setter(el);
+      lab.textContent = fmtFn(el);
+      persist();
+    });
+    return el;
+  }
+  const dens = document.getElementById('density');
+  dens.value = String(state.density);
+  document.getElementById('densityVal').textContent = String(state.density);
+  dens.addEventListener('input', function () {
+    state.density = +dens.value;
+    document.getElementById('densityVal').textContent = dens.value;
+    state.dirtyArrows = true;
+    persist();
+  });
+  const cnt = document.getElementById('count');
+  cnt.value = String(state.count);
+  document.getElementById('countVal').textContent = String(state.count);
+  cnt.addEventListener('input', function () {
+    state.count = +cnt.value;
+    document.getElementById('countVal').textContent = cnt.value;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    seedParticles(state.count, rect.width, rect.height);
+    persist();
+  });
+  const spd = document.getElementById('speed');
+  spd.value = String(Math.round(state.speed * 100));
+  document.getElementById('speedVal').textContent = state.speed.toFixed(1);
+  spd.addEventListener('input', function () {
+    state.speed = +spd.value / 100;
+    document.getElementById('speedVal').textContent = state.speed.toFixed(1);
+    persist();
+  });
+
+  ['showArrows','showParts','showGrid','normalize'].forEach(function (id) {
+    const el = document.getElementById(id);
+    el.checked = state[id];
+    el.addEventListener('change', function () {
+      state[id] = el.checked;
+      state.dirtyArrows = true;
+      persist();
+    });
+  });
+
+  const playBtn = document.getElementById('playBtn');
+  function setPlaying(on) {
+    state.playing = on;
+    playBtn.innerHTML = on
+      ? '<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><rect x=\'6\' y=\'5\' width=\'4\' height=\'14\'/><rect x=\'14\' y=\'5\' width=\'4\' height=\'14\'/></svg> Pause'
+      : '<svg viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M8 5v14l11-7z\' fill=\'currentColor\' stroke=\'none\'/></svg> Play';
+    persist();
+  }
+  setPlaying(state.playing);
+  playBtn.addEventListener('click', function () { setPlaying(!state.playing); });
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    seedParticles(state.count, rect.width, rect.height);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+      e.preventDefault();
+      setPlaying(!state.playing);
+    }
+  });
+
+  document.getElementById('zoomIn').addEventListener('click', function () { zoomAt(canvas.width/2, canvas.height/2, 1.2); });
+  document.getElementById('zoomOut').addEventListener('click', function () { zoomAt(canvas.width/2, canvas.height/2, 1/1.2); });
+  document.getElementById('viewReset').addEventListener('click', function () {
+    state.view = { cx: 0, cy: 0, scale: 70 };
+    state.dirtyArrows = true;
+  });
+
+  function zoomAt(sx, sy, factor) {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const before = screenToWorld(sx, sy, rect.width, rect.height);
+    state.view.scale = Math.max(18, Math.min(420, state.view.scale * factor));
+    const after = screenToWorld(sx, sy, rect.width, rect.height);
+    state.view.cx += before.x - after.x;
+    state.view.cy += before.y - after.y;
+    state.dirtyArrows = true;
+  }
+
+  let dragging = false, lastX = 0, lastY = 0, moved = false;
+  canvas.addEventListener('pointerdown', function (e) {
+    dragging = true; moved = false;
+    lastX = e.clientX; lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', function (e) {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+    const wpt = screenToWorld(sx, sy, rect.width, rect.height);
+    state.hover = wpt;
+    hud.style.left = Math.min(sx, rect.width - 190) + 'px';
+    hud.style.top = Math.min(sy, rect.height - 80) + 'px';
+    updateHud();
+    if (!dragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    if (Math.hypot(dx, dy) > 2) moved = true;
+    state.view.cx -= dx / state.view.scale;
+    state.view.cy += dy / state.view.scale;
+    lastX = e.clientX; lastY = e.clientY;
+    state.dirtyArrows = true;
+  });
+  canvas.addEventListener('pointerup', function (e) {
+    if (dragging && !moved) {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      const wpt = screenToWorld(sx, sy, rect.width, rect.height);
+      state.particles.push(spawnParticle(wpt.x, wpt.y, true));
+    }
+    dragging = false;
+  });
+  canvas.addEventListener('pointerleave', function () {
+    dragging = false;
+    state.hover = null;
+    updateHud();
+  });
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+    zoomAt(sx, sy, e.deltaY < 0 ? 1.12 : 1/1.12);
+  }, { passive: false });
+
+  window.addEventListener('resize', resize);
+  resize();
+  seedParticles(state.count, canvas.parentElement.getBoundingClientRect().width, canvas.parentElement.getBoundingClientRect().height);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
