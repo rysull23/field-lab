@@ -1,8 +1,8 @@
 # Field Lab
 
-An interactive 2D vector-field laboratory. Edit Px and Py, watch arrows and particles respond immediately, hover for a live readout.
+Interactive 2D vector-field laboratory. Edit Px and Py, watch arrows and particles respond immediately, hover for a live readout.
 
-Open `index.html` in a browser, or visit the deployed site.
+**Open the app:** https://cdn.jsdelivr.net/gh/rysull23/field-lab@main/index.html
 
 ## Try
 
